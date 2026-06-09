@@ -56,6 +56,23 @@ st.title("AgentAudit")
 
 st.caption("Quality-checked AI pipelines you can inspect — not a one-shot chatbot.")
 
+st.markdown(
+
+    """
+
+Hello — welcome to my app.
+
+**AgentAudit** shows how multi-step AI work can run with guardrails: a task gets split into steps,
+each step is quality-checked before the next one runs, failed steps can retry, and every LLM call
+is logged so you can see exactly what happened.
+
+This is not a single ChatGPT prompt — it is a small **team of agents** (planner, worker, judge) plus
+a full **audit trail**. Try the **Run pipeline** tab below, or read the sidebar for a plain-English walkthrough.
+
+    """
+
+)
+
 
 
 
