@@ -12,14 +12,29 @@ SCOPE_OK_PHRASES = (
 )
 
 LIST_ONLY_HINTS = ("identify", "list", "name three", "name 3", "research three", "pick three")
-EXPLAIN_HINTS = ("explain", "sentence", "describe", "why each", "one line each")
+LIST_ONLY_MARKERS = (
+    "titles only",
+    "names only",
+    "name only",
+    "list only",
+    "no explanations",
+    "without explanations",
+    "no description",
+)
 
 
 def step_expects_list_only(assigned_step: str) -> bool:
     step = assigned_step.lower()
+    if any(marker in step for marker in LIST_ONLY_MARKERS):
+        return True
     if not any(hint in step for hint in LIST_ONLY_HINTS):
         return False
-    return not any(hint in step for hint in EXPLAIN_HINTS)
+    # Word boundaries — avoid matching "explain" inside "explanations"
+    if re.search(r"\bexplain\b", step) or re.search(r"\bsentence\b", step):
+        return False
+    if re.search(r"\bdescribe\b", step) or re.search(r"\bsummarize\b", step):
+        return False
+    return True
 
 
 def _item_lines(worker_output: str) -> list[str]:
