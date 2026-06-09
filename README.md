@@ -42,13 +42,15 @@ Both run a planner → worker → judge flow with retry on failure. The orchestr
 
 See [docs/DESIGN.md](docs/DESIGN.md) for architecture diagrams and routing rules.
 
-## View traces (dashboard)
+## Run the app (dashboard)
 
 ```bash
 streamlit run dashboard/app.py
 ```
 
-Opens a local UI to browse runs, filter by trace, and inspect each span's input/output and judge verdicts.
+Opens a local UI where you can **enter a task**, run the orchestrator pipeline, see the final answer + QC verdict, and inspect the full audit trail. Use the **Interview guide** tab when prepping for demos.
+
+See [docs/INTERVIEW.md](docs/INTERVIEW.md) for recruiter/engineer talking points.
 
 ## Project layout
 

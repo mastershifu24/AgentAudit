@@ -34,8 +34,13 @@ def run_specialist(agent_name: str, state) -> str:
         return f"Worker finished step {step_num}."
 
     if agent_name == "worker_retry":
-        if not state.worker_output or not state.verdict:
-            raise RuntimeError("Retry called without prior worker output or verdict")
+        if state.worker_output is None or state.verdict is None:
+            raise RuntimeError(
+                f"Retry called without prior worker output or verdict "
+                f"(output={'set' if state.worker_output is not None else 'missing'}, "
+                f"verdict={'set' if state.verdict is not None else 'missing'}, "
+                f"attempts={state.worker_attempts})"
+            )
         step_num = state.current_step_index + 1
         feedback = state.verdict.get("suggestion") or "; ".join(
             state.verdict.get("issues", [])

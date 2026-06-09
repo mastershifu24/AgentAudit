@@ -21,6 +21,11 @@ def planner_agent(task: str):
 
 Task: {task}
 
+Rules:
+- Describe WHAT to do in each step — never include the actual answers/items.
+- If step 1 is list-only, say e.g. "List three X" without naming them.
+- Step 2 handles explanations if the task requires them.
+
 Return ONLY valid JSON in this shape:
 {{
   "steps": [
@@ -106,7 +111,7 @@ Return ONLY valid JSON:
 }}
 """
     response = call_openai(prompt)
-    verdict = normalize_verdict(parse_json(response.text))
+    verdict = normalize_verdict(parse_json(response.text), assigned_step, worker_output)
     return LLMResponse(
         text=json.dumps(verdict, indent=2),
         usage_metadata=response.usage_metadata,

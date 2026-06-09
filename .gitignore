@@ -5,5 +5,7 @@ __pycache__/
 .venv/
 venv/
 traces.jsonl
+debug.log
 .pytest_cache/
 .mypy_cache/
+docs/INTERVIEW.md

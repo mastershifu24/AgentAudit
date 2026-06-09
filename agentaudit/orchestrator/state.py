@@ -34,11 +34,18 @@ def run_orchestrated_pipeline(task: str, state: PipelineState | None = None) -> 
         next_agent = decision.get("next_agent", "").strip().lower()
         state.last_orchestrator_reason = decision.get("reason", "")
 
+        suggested = _suggest_next_agent(state)
         if next_agent not in VALID_AGENTS:
-            next_agent = _suggest_next_agent(state)
+            next_agent = suggested
             state.last_orchestrator_reason = (
                 f"Fallback routing (orchestrator returned invalid agent): {next_agent}"
             )
+        elif next_agent != suggested:
+            state.last_orchestrator_reason = (
+                f"Fallback routing (orchestrator chose '{next_agent}', "
+                f"expected '{suggested}'): {decision.get('reason', '')}"
+            )
+            next_agent = suggested
 
         print(f"Turn {turn} — orchestrator → {next_agent}")
         print(f"  Reason: {state.last_orchestrator_reason}")
