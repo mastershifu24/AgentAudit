@@ -342,7 +342,11 @@ with run_tab:
 
 
 
-        st.markdown("### Final answer")
+        if passed:
+            st.markdown("### Final answer")
+        else:
+            st.markdown("### Last output (did not pass QC)")
+            st.caption("Pipeline stopped — output below was not certified. See judge spans in the audit trail.")
 
         st.markdown(_format_final_answer(state))
 

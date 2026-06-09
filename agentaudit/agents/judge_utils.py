@@ -22,8 +22,8 @@ def step_expects_list_only(assigned_step: str) -> bool:
     return not any(hint in step for hint in EXPLAIN_HINTS)
 
 
-def has_explanations(worker_output: str) -> bool:
-    """Detect explanations on a list-only step (not plain '1. Item' numbering)."""
+def _item_lines(worker_output: str) -> list[str]:
+    lines: list[str] = []
     for line in worker_output.splitlines():
         line = line.strip()
         if not line:
@@ -31,16 +31,31 @@ def has_explanations(worker_output: str) -> bool:
         body = re.sub(r"^[\d]+[\.\)]\s*", "", line)
         body = re.sub(r"^[-*•]\s*", "", body).strip()
         body = re.sub(r"^\*\*|\*\*$", "", body).strip()
+        if body:
+            lines.append(body)
+    return lines
 
+
+def has_explanations(worker_output: str) -> bool:
+    """Detect explanations on a list-only step (not plain '1. Item' numbering)."""
+    for body in _item_lines(worker_output):
         if ":" in body:
             after_colon = body.split(":", 1)[1].strip()
             if len(after_colon) > 20:
                 return True
-
         if len(body) > 55:
             return True
-
+        if " and " in body.lower() and len(body) > 35:
+            return True
     return False
+
+
+def looks_like_clean_list(worker_output: str, min_items: int = 3) -> bool:
+    """Short name-only lines with no explanation markers."""
+    lines = _item_lines(worker_output)
+    if len(lines) < min_items:
+        return False
+    return all(len(line) <= 55 and ":" not in line for line in lines)
 
 
 def normalize_verdict(
@@ -61,6 +76,11 @@ def normalize_verdict(
                 "List the items only — no explanations until the assigned step asks for them."
             )
             score = min(score, 40) if score else 40
+        elif looks_like_clean_list(worker_output):
+            passed = True
+            score = max(score, 85)
+            issues = []
+            verdict["suggestion"] = ""
 
     if issues and not passed:
         joined = " ".join(issues).lower()
