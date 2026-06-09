@@ -54,13 +54,7 @@ st.set_page_config(page_title="AgentAudit", page_icon="🔍", layout="wide")
 
 st.title("AgentAudit")
 
-st.caption(
-
-    "Multi-agent pipeline with quality checks and full audit trail — "
-
-    "not a single chatbot response."
-
-)
+st.caption("Quality-checked AI pipelines you can inspect — not a one-shot chatbot.")
 
 
 
@@ -178,57 +172,79 @@ def _render_trace_detail(traces: dict, trace_id: str, key_prefix: str = "") -> N
 
 with st.sidebar:
 
-    st.markdown("### What is this?")
+    st.markdown("### The idea (plain English)")
 
     st.markdown(
 
         """
 
-**AgentAudit** runs a task through several AI agents:
+Think of a **small team**, not one chatbot.
 
+1. You describe a task.
+2. A **planner** splits it into steps.
+3. A **worker** does each step.
+4. A **judge** checks quality *before* the next step runs.
+5. If quality fails, a **retry** tries again with feedback.
 
-
-1. **Planner** — breaks the task into steps
-
-2. **Worker** — executes each step
-
-3. **Judge** — scores quality (pass/fail)
-
-4. **Retry** — fixes output if judge fails
-
-
-
-Every LLM call is logged. You see *how* the answer was built, not just the answer.
-
-
-
-**vs ChatGPT:** one chat = black box.  
-
-**AgentAudit:** structured pipeline + QC + audit trail.
+Every LLM call is saved as a **span** — input, output, latency, pass/fail.
+You see *how* the answer was built, not just the final text.
 
         """
 
     )
 
-    st.markdown("### Tech stack")
+    st.markdown("### Why not just ChatGPT?")
 
     st.markdown(
 
         """
+
+One chat = one black box. If something's wrong, you scroll and guess.
+
+**AgentAudit** gives you:
+
+- **Step-by-step work** (plan → execute → check)
+- **QC per step**, not only at the end
+- **Retry** when the judge catches bad output
+- **Audit trail** for debugging and demos
+
+        """
+
+    )
+
+    with st.expander("Who does what?"):
+
+        st.markdown(
+
+            """
+
+| Agent | Job |
+|-------|-----|
+| **Planner** | Breaks your task into 2 steps |
+| **Worker** | Does the current step only |
+| **Judge** | Pass/fail on that step (separate from worker) |
+| **Retry** | Revises after a failed judge |
+
+            """
+
+        )
+
+    with st.expander("Tech (for engineers)"):
+
+        st.markdown(
+
+            """
 
 - Python + OpenAI API
+- `@trace_llm` → JSONL spans (`traces.jsonl`)
+- Fixed pipeline in this UI; orchestrator demos in CLI
+- Streamlit dashboard
 
-- `@trace_llm` decorator → JSONL spans
+            """
 
-- Orchestrator LLM + fallback routing
+        )
 
-- Streamlit UI
-
-        """
-
-    )
-
-    st.markdown(f"Traces: `{DEFAULT_LOG_PATH}`")
+    st.caption(f"Traces: `{DEFAULT_LOG_PATH}`")
 
     if st.button("Reload"):
 
@@ -258,9 +274,14 @@ with run_tab:
 
     st.markdown(
 
-        "Enter any multi-step task. Runs planner → worker → judge per step "
+        """
 
-        "(with retry if quality fails)."
+**Try a two-part task** — e.g. *list three items (names only), then explain each in one sentence.*
+
+Click **Run pipeline**. You'll get a final answer plus an audit trail showing every agent call.
+If the worker skips ahead or adds too much detail, the judge can fail that step and trigger a retry.
+
+        """
 
     )
 
@@ -269,27 +290,23 @@ with run_tab:
     if "task_input" not in st.session_state:
         st.session_state["task_input"] = DEFAULT_TASK
 
-    task = st.text_area(
-        "Your task",
-        key="task_input",
-        height=100,
-        placeholder="Enter a multi-step task…",
-    )
-
-    run_clicked = st.button("Run pipeline", type="primary")
-
-
+    with st.form("pipeline_form", clear_on_submit=False):
+        task = st.text_area(
+            "Your task",
+            value=st.session_state["task_input"],
+            height=100,
+            placeholder="Enter a multi-step task…",
+        )
+        run_clicked = st.form_submit_button("Run pipeline", type="primary")
 
     if run_clicked:
-
-        task_to_run = task.strip() or DEFAULT_TASK
+        st.session_state["task_input"] = task.strip() or DEFAULT_TASK
+        task_to_run = st.session_state["task_input"]
 
         with st.spinner("Running pipeline — planner, worker, judge per step…"):
-
             trace_id, state = _run_pipeline(task_to_run)
 
         st.session_state["last_trace_id"] = trace_id
-
         st.session_state["last_state"] = state
 
 
@@ -344,9 +361,13 @@ with run_tab:
 
         if passed:
             st.markdown("### Final answer")
+            st.caption("All steps passed quality checks.")
         else:
             st.markdown("### Last output (did not pass QC)")
-            st.caption("Pipeline stopped — output below was not certified. See judge spans in the audit trail.")
+            st.warning(
+                "Pipeline stopped early. The text below was **not** certified — "
+                "expand the judge spans in the audit trail to see why."
+            )
 
         st.markdown(_format_final_answer(state))
 
