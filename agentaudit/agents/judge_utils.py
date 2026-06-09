@@ -1,17 +1,8 @@
-"""Normalize judge verdicts so pass/fail matches the assigned step."""
+"""Normalize judge verdicts — surgical fixes only when the step explicitly constrains format."""
 
 import re
 
-SCOPE_OK_PHRASES = (
-    "within the expected scope",
-    "within scope",
-    "not required for the assigned step",
-    "was only to",
-    "only list",
-    "without explanations",
-)
-
-LIST_ONLY_HINTS = ("identify", "list", "name three", "name 3", "research three", "pick three")
+# Step text must contain one of these — never inferred from vague words like "list" or "research".
 LIST_ONLY_MARKERS = (
     "titles only",
     "names only",
@@ -20,21 +11,27 @@ LIST_ONLY_MARKERS = (
     "no explanations",
     "without explanations",
     "no description",
+    "no detail",
 )
 
 
-def step_expects_list_only(assigned_step: str) -> bool:
+def step_expects_explanations(assigned_step: str) -> bool:
     step = assigned_step.lower()
-    if any(marker in step for marker in LIST_ONLY_MARKERS):
-        return True
-    if not any(hint in step for hint in LIST_ONLY_HINTS):
+    return bool(
+        re.search(
+            r"\bexplain|\bsummarize\b|\bdescribe\b|\bone sentence\b|"
+            r"\bbrief explanation\b|\bdetailing\b|\bimportance\b",
+            step,
+        )
+    )
+
+
+def step_explicitly_list_only(assigned_step: str) -> bool:
+    """True only when the planner step explicitly forbids explanations."""
+    if step_expects_explanations(assigned_step):
         return False
-    # Word boundaries — avoid matching "explain" inside "explanations"
-    if re.search(r"\bexplain\b", step) or re.search(r"\bsentence\b", step):
-        return False
-    if re.search(r"\bdescribe\b", step) or re.search(r"\bsummarize\b", step):
-        return False
-    return True
+    step = assigned_step.lower()
+    return any(marker in step for marker in LIST_ONLY_MARKERS)
 
 
 def _item_lines(worker_output: str) -> list[str]:
@@ -52,7 +49,7 @@ def _item_lines(worker_output: str) -> list[str]:
 
 
 def has_explanations(worker_output: str) -> bool:
-    """Detect explanations on a list-only step (not plain '1. Item' numbering)."""
+    """Detect per-item explanations (not plain '1. Item' numbering)."""
     for body in _item_lines(worker_output):
         if ":" in body:
             after_colon = body.split(":", 1)[1].strip()
@@ -65,7 +62,7 @@ def has_explanations(worker_output: str) -> bool:
     return False
 
 
-def looks_like_clean_list(worker_output: str, min_items: int = 3) -> bool:
+def looks_like_clean_list(worker_output: str, min_items: int = 2) -> bool:
     """Short name-only lines with no explanation markers."""
     lines = _item_lines(worker_output)
     if len(lines) < min_items:
@@ -82,7 +79,13 @@ def normalize_verdict(
     score = verdict.get("score", 0)
     passed = bool(verdict.get("pass"))
 
-    if assigned_step and worker_output and step_expects_list_only(assigned_step):
+    if not assigned_step or not worker_output:
+        verdict["pass"] = passed
+        verdict["issues"] = issues
+        verdict["score"] = score
+        return verdict
+
+    if step_explicitly_list_only(assigned_step):
         if has_explanations(worker_output):
             passed = False
             if not issues:
@@ -97,24 +100,24 @@ def normalize_verdict(
             issues = []
             verdict["suggestion"] = ""
 
-    if issues and not passed:
-        joined = " ".join(issues).lower()
-        if any(phrase in joined for phrase in SCOPE_OK_PHRASES):
-            if "scope creep" not in joined and "jumped ahead" not in joined:
-                passed = True
-                issues = []
-
-    if not issues and score >= 70 and not (
-        assigned_step and worker_output and step_expects_list_only(assigned_step) and has_explanations(worker_output)
-    ):
-        passed = True
-
-    if passed and score < 1:
-        score = 85
+    elif step_expects_explanations(assigned_step):
+        if not has_explanations(worker_output):
+            passed = False
+            if not issues:
+                issues = ["Step requires explanations but worker only listed items."]
+            verdict["suggestion"] = "Add a clear one-sentence explanation for each item."
+            score = min(score, 40) if score else 40
+        elif has_explanations(worker_output):
+            passed = True
+            score = max(score, 85)
+            issues = []
+            verdict["suggestion"] = ""
 
     if passed:
         issues = []
         verdict["suggestion"] = ""
+        if score < 1:
+            score = 85
 
     verdict["pass"] = passed
     verdict["issues"] = issues

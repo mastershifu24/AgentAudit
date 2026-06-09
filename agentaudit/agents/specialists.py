@@ -17,20 +17,22 @@ def parse_json(text: str) -> dict:
 
 @trace_llm(agent_name="planner")
 def planner_agent(task: str):
-    prompt = f"""You are a planner agent. Break this task into exactly 2 steps.
+    prompt = f"""You are a planner agent. Break this task into 1–3 concrete steps.
 
 Task: {task}
 
 Rules:
+- Match what the user asked — do not invent extra constraints they did not request.
+- Use a single step when the task is one coherent request (e.g. research, explain, compare).
+- Only split into separate list-then-explain steps when the user explicitly asked for
+  names/titles first and explanations in a later step (e.g. "titles only, then summarize each").
+- When a step must be names/titles only, say so explicitly (e.g. "names only, no explanations").
 - Describe WHAT to do in each step — never include the actual answers/items.
-- If step 1 is list-only, say e.g. "List three X" without naming them.
-- Step 2 handles explanations if the task requires them.
 
 Return ONLY valid JSON in this shape:
 {{
   "steps": [
-    {{"step": 1, "action": "..."}},
-    {{"step": 2, "action": "..."}}
+    {{"step": 1, "action": "..."}}
   ]
 }}
 """
@@ -94,13 +96,13 @@ Worker output:
 {worker_output}
 
 Rules:
-1. If the assigned step says identify/list/research skills: PASS when items are listed
-   without explanations. FAIL only if they added explanations (scope creep) or listed too few items.
-2. If the assigned step says explain or one sentence each: PASS only if each item has
-   a clear one-sentence explanation. FAIL if explanations are missing.
-3. Do NOT fail for formatting style (numbered list vs bullets) if content is correct.
-4. Do NOT fail because a LATER step's work is missing — that is expected.
-5. If the worker satisfied the assigned step, you MUST set pass=true and issues=[].
+1. Judge ONLY the assigned step — not the full original task unless this step covers it all.
+2. PASS when the worker reasonably completed what the assigned step asked for.
+3. FAIL only for clear problems: wrong topic, too few items, scope creep (extra work the step
+   forbade), or missing required content (e.g. step says "explain each" but only names were listed).
+4. Do NOT fail for formatting (numbered list vs bullets) if content is correct.
+5. Do NOT fail because a LATER step's work is missing — that is expected on multi-step tasks.
+6. If the worker satisfied the assigned step, you MUST set pass=true and issues=[].
 
 Return ONLY valid JSON:
 {{

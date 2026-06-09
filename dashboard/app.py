@@ -293,10 +293,10 @@ with run_tab:
 
         """
 
-**Try a two-part task** — e.g. *list three items (names only), then explain each in one sentence.*
+**Ask anything** — research questions, comparisons, summaries, or multi-step tasks.
 
 Click **Run pipeline**. You'll get a final answer plus an audit trail showing every agent call.
-If the worker skips ahead or adds too much detail, the judge can fail that step and trigger a retry.
+For a QC demo, try a two-part task: *list three items (names only), then explain each in one sentence.*
 
         """
 
@@ -339,8 +339,8 @@ If the worker skips ahead or adds too much detail, the judge can fail that step 
         run_spans = traces.get(trace_id, [])
         summary = summarize_trace(run_spans) if run_spans else {}
         judge_scores = summary.get("judge_scores") or []
-        passed = summary.get("final_verdict") == "pass"
-        verdict_label = summary.get("final_verdict", "—").upper() if summary.get("final_verdict") else "—"
+        passed = state.all_steps_passed() and state.finished
+        verdict_label = "PASS" if passed else ("FAIL" if state.finished else "—")
         if len(judge_scores) > 1:
             score_label = f"{min(judge_scores)} (min of {len(judge_scores)})"
         elif judge_scores:
