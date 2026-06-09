@@ -32,12 +32,7 @@ from agentaudit.orchestrator import run_fixed_pipeline
 
 from agentaudit.trace import get_trace_id, init_trace
 
-from agentaudit.trace.reader import (
-    group_by_trace,
-    judge_scores_from_spans,
-    load_spans,
-    summarize_trace,
-)
+from agentaudit.trace.reader import group_by_trace, load_spans, summarize_trace
 
 from agentaudit.trace.store import DEFAULT_LOG_PATH
 
@@ -309,7 +304,7 @@ with run_tab:
         traces = group_by_trace(spans)
         run_spans = traces.get(trace_id, [])
         summary = summarize_trace(run_spans) if run_spans else {}
-        judge_scores = judge_scores_from_spans(run_spans)
+        judge_scores = summary.get("judge_scores") or []
         passed = summary.get("final_verdict") == "pass"
         verdict_label = summary.get("final_verdict", "—").upper() if summary.get("final_verdict") else "—"
         if len(judge_scores) > 1:
