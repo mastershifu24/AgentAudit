@@ -15,6 +15,7 @@ class PipelineState:
     last_orchestrator_reason: str = ""
     finished: bool = False
     step_outputs: dict[int, str] = field(default_factory=dict)
+    search_context: str = ""
 
     def total_steps(self) -> int:
         if not self.plan:

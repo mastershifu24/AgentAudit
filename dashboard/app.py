@@ -40,9 +40,9 @@ from agentaudit.trace.store import DEFAULT_LOG_PATH
 
 DEFAULT_TASK = (
 
-    "Research three skills needed for a junior data engineer role "
+    "Research three skills emphasized in EY Tax Technology and Transformation "
 
-    "and explain each in one sentence."
+    "staff data scientist roles (LLMs, AI agents, Python) and explain each in one sentence."
 
 )
 
@@ -67,7 +67,10 @@ each step is quality-checked before the next one runs, failed steps can retry, a
 is logged so you can see exactly what happened.
 
 This is not a single ChatGPT prompt — it is a small **team of agents** (planner, worker, judge) plus
-a full **audit trail**. Try the **Run pipeline** tab below, or read the sidebar for a plain-English walkthrough.
+a full **audit trail**. That pattern fits regulated work (tax, finance, compliance) where you need
+step-by-step QC and traceability, not a black-box answer.
+
+Try the **Run pipeline** tab below, or read the sidebar for a plain-English walkthrough.
 
     """
 
@@ -223,7 +226,8 @@ One chat = one black box. If something's wrong, you scroll and guess.
 - **Step-by-step work** (plan → execute → check)
 - **QC per step**, not only at the end
 - **Retry** when the judge catches bad output
-- **Audit trail** for debugging and demos
+- **Audit trail** for debugging, demos, and audit-style review
+- **Web search** on research tasks (optional) so answers are less generic
 
         """
 
@@ -237,7 +241,8 @@ One chat = one black box. If something's wrong, you scroll and guess.
 
 | Agent | Job |
 |-------|-----|
-| **Planner** | Breaks your task into 2 steps |
+| **Planner** | Breaks your task into 1–3 steps |
+| **Web search** | DuckDuckGo snippets to ground research (when enabled) |
 | **Worker** | Does the current step only |
 | **Judge** | Pass/fail on that step (separate from worker) |
 | **Retry** | Revises after a failed judge |
@@ -252,10 +257,10 @@ One chat = one black box. If something's wrong, you scroll and guess.
 
             """
 
-- Python + OpenAI API
-- `@trace_llm` → JSONL spans (`traces.jsonl`)
+- Python + OpenAI API + `ddgs` (DuckDuckGo metasearch, no extra API key)
+- `@trace_llm` → JSONL spans (`traces.jsonl`) — planner, worker, judge, web_search
 - Fixed pipeline in this UI; orchestrator demos in CLI
-- Streamlit dashboard
+- Streamlit dashboard · `AGENTAUDIT_WEB_SEARCH` to toggle search
 
             """
 
@@ -315,6 +320,11 @@ For a QC demo, try a two-part task: *list three items (names only), then explain
             placeholder="Enter a multi-step task…",
         )
         run_clicked = st.form_submit_button("Run pipeline", type="primary")
+
+    st.caption(
+        "Research tasks use web search automatically (DuckDuckGo). "
+        "Paste a long job description to skip search and ground on your text instead."
+    )
 
     if run_clicked:
         st.session_state["task_input"] = task.strip() or DEFAULT_TASK

@@ -27,13 +27,23 @@ def _get_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-def call_openai(prompt: str, model: str = DEFAULT_MODEL) -> LLMResponse:
+def call_openai(
+    prompt: str,
+    model: str = DEFAULT_MODEL,
+    *,
+    system: str | None = None,
+    temperature: float | None = None,
+) -> LLMResponse:
     """Send a prompt to OpenAI and return a normalized response object."""
     client = _get_client()
-    completion = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    messages: list[dict[str, str]] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    kwargs: dict = {"model": model, "messages": messages}
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+    completion = client.chat.completions.create(**kwargs)
     usage = completion.usage
     return LLMResponse(
         text=completion.choices[0].message.content or "",

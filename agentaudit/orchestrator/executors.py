@@ -7,6 +7,7 @@ from agentaudit.agents import (
     worker_agent,
     worker_retry_agent,
 )
+from agentaudit.tools.web_search import fetch_task_search_context
 
 
 def run_specialist(agent_name: str, state) -> str:
@@ -17,6 +18,7 @@ def run_specialist(agent_name: str, state) -> str:
         state.plan = parse_json(response.text)
         state.current_step_index = 0
         state.step_outputs = {}
+        state.search_context = fetch_task_search_context(state.task)
         state.sync_current_step()
         return f"Plan created. Step 1: {state.current_step}"
 
@@ -27,7 +29,9 @@ def run_specialist(agent_name: str, state) -> str:
         prior = "\n".join(
             f"Step {i + 1}: {text}" for i, text in sorted(state.step_outputs.items())
         )
-        response = worker_agent(state.current_step, state.task, prior)
+        response = worker_agent(
+            state.current_step, state.task, prior, state.search_context
+        )
         state.worker_output = response.text
         state.worker_attempts += 1
         state.verdict = None
@@ -50,6 +54,7 @@ def run_specialist(agent_name: str, state) -> str:
             state.task,
             state.worker_output,
             feedback,
+            state.search_context,
         )
         state.worker_output = response.text
         state.worker_attempts += 1

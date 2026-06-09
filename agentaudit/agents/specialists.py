@@ -7,6 +7,22 @@ from agentaudit.llm.openai import LLMResponse, call_openai
 from agentaudit.trace import trace_llm
 from agentaudit.agents.judge_utils import normalize_verdict
 
+WORKER_SYSTEM = """You produce specific, task-grounded answers — not generic textbook lists.
+
+Rules:
+- Anchor every point to names in the task (company, role, product, domain).
+- Prefer concrete skills, tools, and methods over vague categories
+  (e.g. "Python, Pandas, SQL" not "programming skills"; "LLM agents" not "AI knowledge").
+- Match counts exactly (three items means exactly three).
+- Do not open with meta phrases ("To execute the step", "I researched").
+- Do not close with filler ("crucial for success", "in today's landscape").
+- If web search snippets are provided, ground facts in those — prefer specifics from results.
+- If the user pasted source text in the task, extract from that — do not invent a different list.
+- If neither search nor pasted source exists, reason from the named context; avoid platitudes.
+- Skip textbook definitions unless the step explicitly asks for them."""
+
+WORKER_RETRY_SYSTEM = WORKER_SYSTEM + "\n- Fix only what the judge flagged; keep good specifics."
+
 
 def parse_json(text: str) -> dict:
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -27,6 +43,8 @@ Rules:
 - Only split into separate list-then-explain steps when the user explicitly asked for
   names/titles first and explanations in a later step (e.g. "titles only, then summarize each").
 - When a step must be names/titles only, say so explicitly (e.g. "names only, no explanations").
+- For research tasks: plan steps that demand role- or company-specific detail, not textbook definitions.
+  Do not add a redundant final "summarize" step if earlier steps already answer the task.
 - Describe WHAT to do in each step — never include the actual answers/items.
 
 Return ONLY valid JSON in this shape:
@@ -39,20 +57,33 @@ Return ONLY valid JSON in this shape:
     return call_openai(prompt)
 
 
+def _search_block(search_context: str) -> str:
+    if not search_context.strip():
+        return ""
+    return (
+        f"\nWeb search snippets (ground facts here when relevant):\n{search_context}\n"
+    )
+
+
 @trace_llm(agent_name="worker")
-def worker_agent(step_action: str, original_task: str, prior_outputs: str = ""):
+def worker_agent(
+    step_action: str,
+    original_task: str,
+    prior_outputs: str = "",
+    search_context: str = "",
+):
     prior_block = (
         f"\nOutputs from earlier steps (use as context):\n{prior_outputs}\n"
         if prior_outputs
         else ""
     )
-    prompt = f"""You are a worker agent. Execute this step and return a concise result.
+    prompt = f"""Execute this step. Return only the result — no preamble or wrap-up.
 
 Original task (for context): {original_task}
-{prior_block}
+{_search_block(search_context)}{prior_block}
 Step to execute: {step_action}
 """
-    return call_openai(prompt)
+    return call_openai(prompt, system=WORKER_SYSTEM, temperature=0.4)
 
 
 @trace_llm(agent_name="worker_retry")
@@ -61,11 +92,12 @@ def worker_retry_agent(
     original_task: str,
     previous_output: str,
     judge_feedback: str,
+    search_context: str = "",
 ):
     prompt = f"""You are a worker agent revising your output after a quality-check failure.
 
 Original task (for context): {original_task}
-
+{_search_block(search_context)}
 Step to execute (do ONLY this — no more, no less): {step_action}
 
 Your previous output:
@@ -76,7 +108,7 @@ Judge feedback — fix these issues:
 
 Return a revised result that stays within the assigned step's scope.
 """
-    return call_openai(prompt)
+    return call_openai(prompt, system=WORKER_RETRY_SYSTEM, temperature=0.4)
 
 
 @trace_llm(agent_name="judge")

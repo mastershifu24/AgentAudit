@@ -2,6 +2,8 @@
 
 Observability + quality-check loops for multi-agent pipelines. Every LLM call is logged as a structured span; a judge agent scores outputs and records pass/fail.
 
+Built for **LLM agent workflows** where you need more than a chatbox: per-step quality control, automatic retry, and a full audit trail — useful in **regulated domains** (tax, finance, compliance) where teams must show *what* each agent did, not just the final answer.
+
 ## Setup
 
 ```bash
@@ -16,7 +18,9 @@ copy .env.example .env        # Windows — creates the file the app actually re
 
 Get an API key at https://platform.openai.com/api-keys.
 
-Default model is **gpt-4o-mini** (cheap, good for multi-agent demos). Override with `OPENAI_MODEL` in `.env`.
+Default model is **gpt-4o-mini** (cheap, good for multi-agent demos). Override with `OPENAI_MODEL` in `.env` (e.g. `gpt-4o` for richer answers on Streamlit Cloud).
+
+**Web search** (optional, on by default): after planning, the worker gets DuckDuckGo snippets via the `ddgs` package — no extra API key. Set `AGENTAUDIT_WEB_SEARCH=false` to disable. Paste a long job description into the task to skip search and use your text instead.
 
 ## Run the demos
 
@@ -52,6 +56,16 @@ Opens a local UI where you can **enter a task**, run the orchestrator pipeline, 
 
 See [docs/INTERVIEW.md](docs/INTERVIEW.md) for recruiter/engineer talking points.
 
+## What this demonstrates (e.g. tax / data science roles)
+
+| Job theme | How AgentAudit maps |
+|-----------|---------------------|
+| **LLM prompting & deployment** | Planner, worker, judge prompts; OpenAI API; configurable model |
+| **AI agents** | Multi-agent pipeline with orchestration and retry |
+| **Python** | End-to-end app: agents, tracing, Streamlit UI |
+| **Quality in regulated work** | Per-step judge pass/fail; span logs (input, output, latency, tokens) |
+| **Integrating AI into workflows** | Fixed pipeline pattern you can extend with tools (web search, APIs, ERP hooks) |
+
 ## Project layout
 
 ```
@@ -59,6 +73,7 @@ agentaudit/
   trace/          # @trace_llm decorator, context, JSONL store + reader
   llm/            # OpenAI client
   agents/          # planner, worker, judge, orchestrator LLM functions
+  tools/           # web search (ddgs) for worker grounding
   orchestrator/    # PipelineState + run loop
 demo/
   minimal_demo.py      # fixed pipeline
