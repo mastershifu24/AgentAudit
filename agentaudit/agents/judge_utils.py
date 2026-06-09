@@ -23,12 +23,23 @@ def step_expects_list_only(assigned_step: str) -> bool:
 
 
 def has_explanations(worker_output: str) -> bool:
-    """Detect 'Item: long explanatory sentence' scope creep."""
-    if re.search(r":\s*\w.{25,}", worker_output):
-        return True
-    items = re.findall(r"^\s*\d+[\.\)]", worker_output, re.MULTILINE)
-    if len(items) >= 2 and worker_output.count(". ") >= len(items):
-        return True
+    """Detect explanations on a list-only step (not plain '1. Item' numbering)."""
+    for line in worker_output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        body = re.sub(r"^[\d]+[\.\)]\s*", "", line)
+        body = re.sub(r"^[-*•]\s*", "", body).strip()
+        body = re.sub(r"^\*\*|\*\*$", "", body).strip()
+
+        if ":" in body:
+            after_colon = body.split(":", 1)[1].strip()
+            if len(after_colon) > 20:
+                return True
+
+        if len(body) > 55:
+            return True
+
     return False
 
 
